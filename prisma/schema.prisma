@@ -238,6 +238,7 @@ model OrderItem {
   quantity         Int
   unitPrice        Decimal             @db.Decimal(12, 2)
   estUnitCostLyd   Decimal?            @db.Decimal(12, 2) // لقطة التكلفة التقديرية (داخلي)
+  actualUnitCostLyd Decimal?           @db.Decimal(12, 2) // التكلفة الفعلية من أمر الشراء والشحنة (داخلي)
   sourcing         SourcingType
   status           OrderStatus         @default(NEW)
   purchaseItems    PurchaseOrderItem[]
@@ -402,6 +403,8 @@ model PurchaseOrderItem {
   orderItem       OrderItem?     @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
   quantity        Int
   unitPrice       Decimal        @db.Decimal(12, 2)
+  landedUnitCostLyd Decimal?     @db.Decimal(12, 2) // الشراء + نصيب الشحن والجمارك، بالدينار
+  receivedQty     Int            @default(0) // المستلم في ليبيا (لبنود المخزون يضاف للمخزون)
   shipmentItems   ShipmentItem[]
 }
 
@@ -684,4 +687,18 @@ model Notification {
   link      String   @default("")
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+// مرفقات عامة: فواتير الموردين، بوالص الشحن، إيصالات...
+model Attachment {
+  id         String   @id @default(cuid())
+  entity     String // PurchaseOrder / Shipment / Delivery ...
+  entityId   String
+  kind       String   @default("other") // invoice / waybill / receipt / other
+  name       String
+  url        String
+  userId     String?
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId])
 }
