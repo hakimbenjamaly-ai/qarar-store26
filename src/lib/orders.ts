@@ -2,7 +2,7 @@ import "server-only";
 import { Prisma, type OrderStatus } from "@prisma/client";
 import { db } from "./db";
 import { nextNumber } from "./numbering";
-import { allowedNext, deriveOrderStatus, STATUS_LABELS } from "./order-status";
+import { allowedNext, deriveOrderStatus, PROGRESS, STATUS_LABELS } from "./order-status";
 import { calcPrice } from "./pricing";
 import { getSettings, latestRates } from "./settings";
 import { audit } from "./audit";
@@ -181,6 +181,40 @@ export async function changeStatus(opts: { orderId: string; itemId?: string; to:
     await audit(opts.userId, "status_change", "Order", order.id, { status: order.status }, { status: derived, to: opts.to, items: movable.map((m) => m.id) }, tx);
     return { moved: movable.length, skipped: targets.length - movable.length, status: derived };
   });
+}
+
+/**
+ * مزامنة حالات بنود الطلبات من أوامر الشراء والشحنات (داخل معاملة).
+ * forward: ينقل البند للأمام فقط إذا كانت الحالة الجديدة أبعد في المسار، ولا يلمس البنود الملغاة/المرتجعة/المسلّمة/المتعثرة.
+ * revert: يعيد البند إلى الحالة المحددة فقط إذا كان في إحدى الحالات المسموح الرجوع منها (مثل إلغاء أمر شراء).
+ */
+export async function syncItemsTx(
+  tx: Prisma.TransactionClient,
+  opts: { itemIds: string[]; to: OrderStatus; note: string; userId: string | null; revertFrom?: OrderStatus[] },
+) {
+  if (opts.itemIds.length === 0) return 0;
+  const items = await tx.orderItem.findMany({ where: { id: { in: opts.itemIds } }, include: { order: true } });
+  const target = PROGRESS.indexOf(opts.to);
+  const movable = items.filter((i) => {
+    if (opts.revertFrom) return opts.revertFrom.includes(i.status);
+    const cur = PROGRESS.indexOf(i.status);
+    return cur >= 0 && target > cur;
+  });
+  const orders = new Map<string, OrderStatus>();
+  for (const it of movable) {
+    await tx.orderItem.update({ where: { id: it.id }, data: { status: opts.to } });
+    await tx.orderStatusHistory.create({ data: { orderId: it.orderId, orderItemId: it.id, fromStatus: it.status, toStatus: opts.to, note: opts.note, userId: opts.userId } });
+    orders.set(it.orderId, it.order.status);
+  }
+  for (const [orderId, prev] of orders) {
+    const after = await tx.orderItem.findMany({ where: { orderId }, select: { status: true } });
+    const derived = deriveOrderStatus(after.map((a) => a.status));
+    if (derived !== prev) {
+      await tx.order.update({ where: { id: orderId }, data: { status: derived } });
+      await tx.orderStatusHistory.create({ data: { orderId, fromStatus: prev, toStatus: derived, note: opts.note, userId: opts.userId } });
+    }
+  }
+  return movable.length;
 }
 
 export async function orderPaid(orderId: string) {

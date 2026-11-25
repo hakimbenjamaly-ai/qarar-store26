@@ -14,7 +14,7 @@ function range(from?: string, to?: string) {
   return { f, t };
 }
 
-export default async function Dashboard({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; category?: string; denied?: string }> }) {
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; category?: string; supplier?: string; denied?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
   if (!can(user, "dashboard.view")) {
@@ -28,34 +28,63 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   }
   const { f, t } = range(sp.from, sp.to);
   const showCosts = can(user, "costs.view");
-  const categories = await db.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } });
+  const [categories, suppliers] = await Promise.all([
+    db.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.supplier.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  ]);
 
   const orderWhere: Prisma.OrderWhereInput = { createdAt: { gte: f, lte: t } };
-  if (sp.category) orderWhere.items = { some: { variant: { product: { categoryId: sp.category } } } };
+  // فلتر البند: القسم و/أو المورد (من أمر الشراء الفعلي، أو المورد المسجل على المنتج)
+  const itemFilter: Prisma.OrderItemWhereInput = {};
+  if (sp.category) itemFilter.variant = { product: { categoryId: sp.category } };
+  if (sp.supplier)
+    itemFilter.OR = [
+      { purchaseItems: { some: { purchaseOrder: { supplierId: sp.supplier, status: { not: "CANCELLED" } } } } },
+      { purchaseItems: { none: {} }, variant: { cost: { supplierId: sp.supplier } } },
+    ];
+  const hasItemFilter = !!(sp.category || sp.supplier);
+  if (hasItemFilter) orderWhere.items = { some: itemFilter };
 
   const [byStatus, totals, items, recent, lowStock] = await Promise.all([
     db.order.groupBy({ by: ["status"], where: orderWhere, _count: true }),
     db.order.aggregate({ where: { ...orderWhere, status: { notIn: ["CANCELLED"] } }, _sum: { total: true, deliveryFee: true }, _count: true }),
     db.orderItem.findMany({
-      where: { order: orderWhere, status: { notIn: ["CANCELLED"] }, ...(sp.category ? { variant: { product: { categoryId: sp.category } } } : {}) },
-      select: { quantity: true, unitPrice: true, estUnitCostLyd: true, status: true, productName: true, variant: { select: { productId: true } } },
+      where: { order: orderWhere, status: { notIn: ["CANCELLED"] }, ...(hasItemFilter ? itemFilter : {}) },
+      select: { quantity: true, unitPrice: true, estUnitCostLyd: true, actualUnitCostLyd: true, status: true, productName: true, variant: { select: { productId: true } } },
     }),
     db.order.findMany({ where: orderWhere, orderBy: { createdAt: "desc" }, take: 8, select: { id: true, number: true, shipName: true, total: true, status: true } }),
     db.productVariant.findMany({ where: { active: true, stockQty: { lte: 2 }, product: { sourcingType: "LOCAL_STOCK", published: true } }, take: 8, include: { product: { select: { name: true, id: true } } } }),
   ]);
 
+  // تكاليف المشتريات والشحن الفعلية في الفترة (بالدينار حسب سعر الصرف المسجل)
+  const [pos, ships] = showCosts
+    ? await Promise.all([
+        db.purchaseOrder.findMany({ where: { status: { notIn: ["DRAFT", "CANCELLED"] }, orderedAt: { gte: f, lte: t }, supplierId: sp.supplier || undefined }, select: { total: true, exchangeRate: true, currency: true } }),
+        db.shipment.findMany({ where: { status: { not: "CANCELLED" }, createdAt: { gte: f, lte: t } }, select: { cost: true, exchangeRate: true, costCurrency: true, customsFeesLyd: true } }),
+      ])
+    : [[], []];
+  const purchaseCost = pos.reduce((s, p) => s + (p.currency === "LYD" ? Number(p.total) : p.exchangeRate ? Number(p.total) * Number(p.exchangeRate) : 0), 0);
+  const posMissingRate = pos.filter((p) => p.currency !== "LYD" && !p.exchangeRate).length;
+  const shippingCost = ships.reduce((s, x) => s + (x.costCurrency === "LYD" ? Number(x.cost) : x.exchangeRate ? Number(x.cost) * Number(x.exchangeRate) : 0) + Number(x.customsFeesLyd), 0);
+
   const count = (s: string[]) => byStatus.filter((b) => s.includes(b.status)).reduce((n, b) => n + b._count, 0);
   const allCount = byStatus.reduce((n, b) => n + b._count, 0);
-  let revenue = 0, expectedCost = 0, missingCost = 0, deliveredRevenue = 0, deliveredCost = 0;
+  let revenue = 0, expectedCost = 0, missingCost = 0, deliveredRevenue = 0, deliveredCost = 0, deliveredMissingActual = 0;
   const top = new Map<string, { name: string; qty: number; revenue: number }>();
   for (const i of items) {
     const r = Number(i.unitPrice) * i.quantity;
     revenue += r;
-    if (i.estUnitCostLyd !== null) expectedCost += Number(i.estUnitCostLyd) * i.quantity;
+    // الربح المتوقع: التكلفة الفعلية إن عُرفت، وإلا التقديرية
+    const unit = i.actualUnitCostLyd ?? i.estUnitCostLyd;
+    if (unit !== null) expectedCost += Number(unit) * i.quantity;
     else missingCost++;
     if (i.status === "DELIVERED") {
       deliveredRevenue += r;
-      if (i.estUnitCostLyd !== null) deliveredCost += Number(i.estUnitCostLyd) * i.quantity;
+      if (i.actualUnitCostLyd !== null) deliveredCost += Number(i.actualUnitCostLyd) * i.quantity;
+      else if (i.estUnitCostLyd !== null) {
+        deliveredCost += Number(i.estUnitCostLyd) * i.quantity;
+        deliveredMissingActual++;
+      } else deliveredMissingActual++;
     }
     const tp = top.get(i.variant.productId) ?? { name: i.productName, qty: 0, revenue: 0 };
     tp.qty += i.quantity;
@@ -82,8 +111,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
+        {showCosts && (
+          <div>
+            <label className="label">المورد</label>
+            <select name="supplier" defaultValue={sp.supplier ?? ""} className="input">
+              <option value="">كل الموردين</option>
+              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+        )}
         <button className="btn-primary">تطبيق</button>
-        <span className="text-xs text-gray-500">فلتر المورد يُضاف مع وحدة الموردين في المرحلة ٢.</span>
       </form>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -101,11 +138,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <Stat label="إجمالي المبيعات (بدون الملغاة)" value={lyd(revenue)} />
         <Stat label="رسوم التوصيل المحصّلة من العملاء" value={lyd(totals._sum.deliveryFee)} />
         {showCosts && <Stat label="الأرباح المتوقعة" value={lyd(revenue - expectedCost)} />}
-        {showCosts && <Stat label="أرباح الطلبات المسلّمة" value={lyd(deliveredRevenue - deliveredCost)} />}
+        {showCosts && <Stat label="الأرباح الفعلية (الطلبات المسلّمة)" value={lyd(deliveredRevenue - deliveredCost)} />}
+        {showCosts && <Stat label="تكلفة المشتريات (أوامر الشراء)" value={lyd(purchaseCost)} href="/admin/purchase-orders" />}
+        {showCosts && <Stat label="تكاليف الشحن والجمارك" value={lyd(shippingCost)} href="/admin/shipments" />}
       </div>
       {showCosts && (
         <p className="mt-2 text-xs text-gray-500">
-          الأرباح هنا محسوبة من التكلفة التقديرية المسجلة على المنتج وقت الطلب.{missingCost > 0 && ` ${missingCost} بنداً بلا تكلفة مسجلة ولم تُحتسب تكلفته.`} تكلفة المشتريات والشحن الفعلية تظهر بعد تفعيل وحدة المشتريات والشحن (المرحلة ٢).
+          الأرباح تُحسب من التكلفة الفعلية للبند (سعر الشراء × سعر الصرف + نصيبه من الشحن والجمارك) عند توفرها، وإلا من التكلفة التقديرية وقت الطلب.
+          {missingCost > 0 && ` ${missingCost} بنداً بلا أي تكلفة مسجلة.`}
+          {deliveredMissingActual > 0 && ` ${deliveredMissingActual} بنداً مسلّماً بلا تكلفة فعلية بعد.`}
+          {posMissingRate > 0 && ` ${posMissingRate} أمر شراء بلا سعر صرف لم يُحتسب.`}
+          {" "}رسوم النورس تُخصم بعد تفعيل وحدة التوزيع (المرحلة ٣).
         </p>
       )}
 

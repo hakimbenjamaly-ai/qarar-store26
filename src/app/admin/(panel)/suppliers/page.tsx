@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser, can } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -33,18 +34,18 @@ function SupplierForm({ s }: { s?: S }) {
 export default async function SuppliersPage({ searchParams }: { searchParams: Promise<{ ok?: string; err?: string }> }) {
   const u = await requireUser();
   if (!can(u, "purchasing.manage") && !can(u, "costs.view")) redirect("/admin?denied=1");
-  const rows = await db.supplier.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { costs: true } } } });
+  const rows = await db.supplier.findMany({ orderBy: { name: "asc" }, include: { _count: { select: { costs: true, products: true } } } });
   return (
     <div>
       <PageHeader title="الموردون" />
-      <p className="mb-4 text-sm text-gray-600">بيانات الموردين الأساسية لربطها بالمنتجات. أوامر الشراء ومتابعة التوفر تأتي في المرحلة ٢.</p>
+      <p className="mb-4 text-sm text-gray-600">بيانات الموردين الأساسية لربطها بالمنتجات. افتح المورد لربط منتجاته ومتابعة توفرها وأوامر الشراء.</p>
       <Flash {...await searchParams} />
       <div className="card mb-6 p-4"><h2 className="mb-3 font-bold">إضافة مورد</h2><SupplierForm /></div>
       <div className="card divide-y">
         {rows.map((s) => (
           <details key={s.id} className="p-3">
             <summary className="cursor-pointer text-sm">
-              <span className="font-medium">{s.name}</span> {s.platform && <span className="text-gray-500">· {s.platform}</span>} <span className="text-gray-500">· {s._count.costs} خيار منتج</span> {!s.active && <span className="badge bg-gray-200">موقوف</span>}
+              <Link href={`/admin/suppliers/${s.id}`} className="font-medium text-brand-700 hover:underline">{s.name}</Link> {s.platform && <span className="text-gray-500">· {s.platform}</span>} <span className="text-gray-500">· {s._count.products} منتج مربوط</span> <span className="text-xs text-gray-400">(تعديل)</span> {!s.active && <span className="badge bg-gray-200">موقوف</span>}
             </summary>
             <div className="mt-3"><SupplierForm s={s} /></div>
           </details>

@@ -8,6 +8,9 @@ import { logout } from "../actions";
 const NAV: { href: string; label: string; perm?: Permission }[] = [
   { href: "/admin", label: "لوحة المؤشرات", perm: "dashboard.view" },
   { href: "/admin/orders", label: "الطلبات", perm: "orders.view" },
+  { href: "/admin/purchasing", label: "بانتظار الشراء", perm: "purchasing.manage" },
+  { href: "/admin/purchase-orders", label: "أوامر الشراء", perm: "purchasing.manage" },
+  { href: "/admin/shipments", label: "الشحنات الدولية", perm: "shipping.manage" },
   { href: "/admin/products", label: "المنتجات", perm: "products.manage" },
   { href: "/admin/categories", label: "الأقسام", perm: "categories.manage" },
   { href: "/admin/suppliers", label: "الموردون", perm: "costs.view" },

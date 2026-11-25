@@ -35,7 +35,15 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
     where: { id },
     include: {
       customer: { include: { _count: { select: { orders: true } } } },
-      items: { include: { variant: { select: { productId: true } } } },
+      items: {
+        include: {
+          variant: { select: { productId: true } },
+          purchaseItems: {
+            where: { purchaseOrder: { status: { not: "CANCELLED" } } },
+            include: { purchaseOrder: { select: { id: true, number: true } }, shipmentItems: { include: { shipment: { select: { id: true, number: true, trackingNumber: true } } } } },
+          },
+        },
+      },
       history: { orderBy: { createdAt: "desc" }, include: { user: { select: { name: true } }, orderItem: { select: { productName: true } } } },
       payments: { orderBy: { receivedAt: "asc" }, include: { method: true, createdBy: { select: { name: true } } } },
       paymentMethod: true,
@@ -51,8 +59,11 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   const paid = o.payments.reduce((s, p) => s + (p.kind === "REFUND" ? -1 : 1) * Number(p.amount), 0);
   const remaining = Number(o.total) - paid;
   const orderOptions = [...new Set(o.items.flatMap((i) => allowedNext(i.status, i.sourcing)))];
-  const estCost = o.items.reduce((s, i) => s + (i.estUnitCostLyd ? Number(i.estUnitCostLyd) * i.quantity : 0), 0);
-  const missingCost = o.items.some((i) => i.estUnitCostLyd === null);
+  const live = o.items.filter((i) => i.status !== "CANCELLED");
+  const unitCost = (i: (typeof o.items)[number]) => i.actualUnitCostLyd ?? i.estUnitCostLyd;
+  const estCost = live.reduce((s, i) => s + (unitCost(i) ? Number(unitCost(i)) * i.quantity : 0), 0);
+  const missingCost = live.some((i) => unitCost(i) === null);
+  const liveRevenue = live.reduce((s, i) => s + Number(i.unitPrice) * i.quantity, 0);
 
   return (
     <div>
@@ -73,7 +84,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
           <section className="card overflow-x-auto">
             <h2 className="p-4 pb-2 font-bold">البنود</h2>
             <table className="table">
-              <thead><tr><th>المنتج</th><th>المصدر</th><th>الكمية</th><th>سعر الوحدة</th>{costs && <th>التكلفة التقديرية</th>}<th>الحالة</th></tr></thead>
+              <thead><tr><th>المنتج</th><th>المصدر</th><th>الكمية</th><th>سعر الوحدة</th>{costs && <th>التكلفة (تقديرية / فعلية)</th>}<th>الحالة</th></tr></thead>
               <tbody>
                 {o.items.map((i) => (
                   <tr key={i.id}>
@@ -81,11 +92,21 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                       <Link href={`/admin/products/${i.variant.productId}`} className="hover:text-brand-700">{i.productName}</Link>
                       {i.variantName && <div className="text-xs text-gray-500">{i.variantName}</div>}
                       <div className="text-xs text-gray-400" dir="ltr">{i.sku}</div>
+                      {i.purchaseItems.map((pi) => (
+                        <div key={pi.id} className="text-xs">
+                          <Link href={`/admin/purchase-orders/${pi.purchaseOrder.id}`} className="text-brand-700" dir="ltr">{pi.purchaseOrder.number}</Link>
+                          {pi.shipmentItems.map((si) => <span key={si.id}> · <Link href={`/admin/shipments/${si.shipment.id}`} className="text-brand-700" dir="ltr">{si.shipment.number}</Link></span>)}
+                        </div>
+                      ))}
                     </td>
                     <td>{i.sourcing === "LOCAL_STOCK" ? "مخزون محلي" : "استيراد"}</td>
                     <td>{i.quantity}</td>
                     <td>{lyd(i.unitPrice)}</td>
-                    {costs && <td>{i.estUnitCostLyd ? lyd(i.estUnitCostLyd) : "—"}</td>}
+                    {costs && (
+                      <td>
+                        {i.estUnitCostLyd ? lyd(i.estUnitCostLyd) : "—"} / {i.actualUnitCostLyd ? <b>{lyd(i.actualUnitCostLyd)}</b> : "—"}
+                      </td>
+                    )}
                     <td className="space-y-1">
                       <span className={`badge ${statusTone(i.status)}`}>{STATUS_LABELS[i.status]}</span>
                       {manage && o.items.length > 1 && <StatusForm compact orderId={o.id} itemId={i.id} options={allowedNext(i.status, i.sourcing)} />}
@@ -101,8 +122,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
               <div className="flex justify-between font-bold"><span>الإجمالي</span><span>{lyd(o.total)}</span></div>
               {costs && (
                 <div className="mt-2 flex justify-between border-t pt-2 text-gray-600">
-                  <span>الربح المتوقع{missingCost ? " (تكلفة ناقصة)" : ""}</span>
-                  <span>{lyd(Number(o.subtotal) - Number(o.discount) - estCost)}</span>
+                  <span>الربح{missingCost ? " (تكلفة ناقصة)" : ""}</span>
+                  <span>{lyd(liveRevenue - Number(o.discount) - estCost)}</span>
                 </div>
               )}
             </div>
