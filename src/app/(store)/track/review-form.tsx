@@ -2,8 +2,10 @@
 
 import { useActionState } from "react";
 import { submitReview } from "./actions";
+import { dict, type Locale } from "@/lib/i18n";
 
-export function ReviewForm({ number, phone, productId }: { number: string; phone: string; productId: string }) {
+export function ReviewForm({ number, phone, productId, l }: { number: string; phone: string; productId: string; l: Locale }) {
+  const t = dict(l);
   const [state, action, pending] = useActionState(submitReview, null);
   if (state?.ok) return <p className="text-sm text-emerald-700">{state.msg}</p>;
   return (
@@ -12,11 +14,11 @@ export function ReviewForm({ number, phone, productId }: { number: string; phone
       <input type="hidden" name="phone" value={phone} />
       <input type="hidden" name="productId" value={productId} />
       <select name="rating" required className="input w-32" defaultValue="">
-        <option value="" disabled>التقييم</option>
+        <option value="" disabled>{t.rating}</option>
         {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{"★".repeat(n)}</option>)}
       </select>
-      <input name="body" placeholder="رأيك في المنتج (اختياري)" className="input min-w-48 flex-1" />
-      <button disabled={pending} className="btn-outline">إرسال التقييم</button>
+      <input name="body" placeholder={t.reviewPh} className="input min-w-48 flex-1" />
+      <button disabled={pending} className="btn-outline">{t.sendReview}</button>
       {state && !state.ok && <span className="w-full text-sm text-red-600">{state.msg}</span>}
     </form>
   );

@@ -26,6 +26,7 @@ export async function ProductForm({ user, p }: { user: CurrentUser; p?: Loaded }
     id: v.id,
     sku: v.sku,
     name: v.name,
+    nameEn: v.nameEn,
     size: v.size ?? "",
     color: v.color ?? "",
     price: String(v.price),
@@ -54,7 +55,8 @@ export async function ProductForm({ user, p }: { user: CurrentUser; p?: Loaded }
     <form action={saveProduct} className="space-y-6">
       {p && <input type="hidden" name="id" value={p.id} />}
       <section className="card grid gap-4 p-5 md:grid-cols-2">
-        <Field label="اسم المنتج *" className="md:col-span-2"><input name="name" defaultValue={p?.name} required className="input" /></Field>
+        <Field label="اسم المنتج *"><input name="name" defaultValue={p?.name} required className="input" /></Field>
+        <Field label="الاسم بالإنجليزية" hint="يظهر لمن يختار الإنجليزية؛ إن تُرك فارغاً يظهر الاسم العربي"><input name="nameEn" defaultValue={p?.nameEn} dir="ltr" className="input" /></Field>
         <Field label="رمز المنتج SKU *"><input name="sku" defaultValue={p?.sku} required dir="ltr" className="input" /></Field>
         <Field label="رابط الصفحة" hint="يُنشأ تلقائياً من الاسم إن تُرك فارغاً"><input name="slug" defaultValue={p?.slug} dir="ltr" className="input" /></Field>
         <Field label="القسم *">
@@ -71,7 +73,8 @@ export async function ProductForm({ user, p }: { user: CurrentUser; p?: Loaded }
           </select>
         </Field>
         <Field label="مدة التوريد التقديرية (أيام)"><input name="leadTimeDays" type="number" min={0} defaultValue={p?.leadTimeDays ?? ""} className="input" /></Field>
-        <Field label="الوصف التفصيلي" className="md:col-span-2"><textarea name="description" rows={5} defaultValue={p?.description} className="input" /></Field>
+        <Field label="الوصف التفصيلي"><textarea name="description" rows={5} defaultValue={p?.description} className="input" /></Field>
+        <Field label="الوصف بالإنجليزية"><textarea name="descriptionEn" rows={5} defaultValue={p?.descriptionEn} dir="ltr" className="input" /></Field>
         <Field label="المواصفات الفنية" hint="سطر لكل مواصفة بصيغة: الاسم: القيمة" className="md:col-span-2">
           <textarea name="specs" rows={4} defaultValue={specsText} className="input" placeholder={"الخامة: قطن\nالوزن: 300 غ"} />
         </Field>

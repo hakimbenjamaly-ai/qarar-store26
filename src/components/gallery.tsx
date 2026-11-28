@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 
-export function Gallery({ images, alt }: { images: string[]; alt: string }) {
+export function Gallery({ images, alt, emptyText }: { images: string[]; alt: string; emptyText: string }) {
   const [i, setI] = useState(0);
-  if (images.length === 0) return <div className="card grid aspect-square place-items-center text-gray-400">لا توجد صور</div>;
+  if (images.length === 0) return <div className="card grid aspect-square place-items-center text-gray-400">{emptyText}</div>;
   return (
     <div className="space-y-3">
       <div className="card aspect-square overflow-hidden">

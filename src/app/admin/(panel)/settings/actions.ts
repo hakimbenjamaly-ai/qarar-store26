@@ -42,6 +42,11 @@ export async function saveStore(fd: FormData) {
   const after = await saveSettings({
     storeName: str(fd, "storeName") || "قرار",
     tagline: str(fd, "tagline"),
+    taglineEn: str(fd, "taglineEn"),
+    addressEn: str(fd, "addressEn"),
+    workingHoursEn: str(fd, "workingHoursEn"),
+    heroTitleEn: str(fd, "heroTitleEn"),
+    heroTextEn: str(fd, "heroTextEn"),
     logoUrl,
     brandColor: /^#[0-9a-f]{6}$/i.test(color) ? color : before.brandColor,
     phone: str(fd, "phone"),
@@ -61,7 +66,14 @@ export async function saveStore(fd: FormData) {
 export async function saveContent(fd: FormData) {
   const u = await requireUser("settings.manage");
   const before = await getSettings();
-  const after = await saveSettings({ purchasePolicy: str(fd, "purchasePolicy"), returnPolicy: str(fd, "returnPolicy"), faq: parseFaq(str(fd, "faq")) });
+  const after = await saveSettings({
+    purchasePolicy: str(fd, "purchasePolicy"),
+    returnPolicy: str(fd, "returnPolicy"),
+    faq: parseFaq(str(fd, "faq")),
+    purchasePolicyEn: str(fd, "purchasePolicyEn"),
+    returnPolicyEn: str(fd, "returnPolicyEn"),
+    faqEn: parseFaq(str(fd, "faqEn")),
+  });
   await audit(u.id, "update", "Settings", "content", { purchasePolicy: before.purchasePolicy, returnPolicy: before.returnPolicy, faq: before.faq }, after);
   done("content");
 }
@@ -82,7 +94,7 @@ export async function savePaymentMethod(fd: FormData) {
   const u = await requireUser("settings.manage");
   const id = str(fd, "id");
   const before = await db.paymentMethod.findUnique({ where: { id } });
-  const data = { name: str(fd, "name") || before?.name || "", instructions: str(fd, "instructions"), enabled: bool(fd, "enabled"), sortOrder: num(fd, "sortOrder") };
+  const data = { name: str(fd, "name") || before?.name || "", nameEn: str(fd, "nameEn"), instructions: str(fd, "instructions"), instructionsEn: str(fd, "instructionsEn"), enabled: bool(fd, "enabled"), sortOrder: num(fd, "sortOrder") };
   await db.paymentMethod.update({ where: { id }, data });
   await audit(u.id, "update", "PaymentMethod", id, before, data);
   done("payments");
@@ -97,6 +109,7 @@ export async function saveCity(fd: FormData) {
   if (dup) flashRedirect(`${P}?tab=cities`, { err: "المدينة موجودة" });
   const data = {
     name,
+    nameEn: str(fd, "nameEn"),
     active: bool(fd, "active"),
     coveredByNawras: bool(fd, "coveredByNawras"),
     deliveryFee: new Prisma.Decimal(Math.max(0, num(fd, "deliveryFee")).toFixed(2)),

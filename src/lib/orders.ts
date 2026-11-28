@@ -7,7 +7,12 @@ import { calcPrice } from "./pricing";
 import { getSettings, latestRates } from "./settings";
 import { audit } from "./audit";
 
-export class OrderError extends Error {}
+export class OrderError extends Error {
+  /** الرسالة بالإنجليزية لعملاء واجهة المتجر الإنجليزية */
+  constructor(message: string, public en?: string) {
+    super(message);
+  }
+}
 
 export type CheckoutInput = {
   fullName: string;
@@ -20,6 +25,7 @@ export type CheckoutInput = {
   note: string;
   paymentMethodId: string;
   items: { variantId: string; quantity: number }[];
+  locale?: "ar" | "en";
 };
 
 const D = (n: number) => new Prisma.Decimal(n.toFixed(2));
@@ -29,25 +35,25 @@ export async function placeOrder(input: CheckoutInput) {
   const merged = new Map<string, number>();
   for (const it of input.items) {
     const q = Math.floor(it.quantity);
-    if (q < 1 || q > 99) throw new OrderError("كمية غير صحيحة");
+    if (q < 1 || q > 99) throw new OrderError("كمية غير صحيحة", "Invalid quantity");
     merged.set(it.variantId, (merged.get(it.variantId) ?? 0) + q);
   }
-  if (merged.size === 0) throw new OrderError("السلة فارغة");
+  if (merged.size === 0) throw new OrderError("السلة فارغة", "Your cart is empty");
 
   const settings = await getSettings();
   const rates = await latestRates();
 
   return db.$transaction(async (tx) => {
     const city = await tx.city.findFirst({ where: { id: input.cityId, active: true } });
-    if (!city) throw new OrderError("المدينة غير متاحة للتوصيل حالياً");
+    if (!city) throw new OrderError("المدينة غير متاحة للتوصيل حالياً", "Delivery to this city is currently unavailable");
     const method = await tx.paymentMethod.findFirst({ where: { id: input.paymentMethodId, enabled: true } });
-    if (!method) throw new OrderError("طريقة الدفع غير متاحة");
+    if (!method) throw new OrderError("طريقة الدفع غير متاحة", "This payment method is unavailable");
 
     const variants = await tx.productVariant.findMany({
       where: { id: { in: [...merged.keys()] }, active: true, product: { published: true } },
       include: { product: true, cost: true },
     });
-    if (variants.length !== merged.size) throw new OrderError("بعض المنتجات في السلة لم تعد متاحة، يرجى مراجعة السلة");
+    if (variants.length !== merged.size) throw new OrderError("بعض المنتجات في السلة لم تعد متاحة، يرجى مراجعة السلة", "Some items in your cart are no longer available, please review your cart");
 
     let subtotal = 0;
     let importSubtotal = 0;
@@ -55,7 +61,7 @@ export async function placeOrder(input: CheckoutInput) {
       const qty = merged.get(v.id)!;
       const price = Number(v.price);
       if (v.product.sourcingType === "LOCAL_STOCK" && v.stockQty < qty) {
-        throw new OrderError(`الكمية المتاحة من «${v.product.name}» هي ${v.stockQty} فقط`);
+        throw new OrderError(`الكمية المتاحة من «${v.product.name}» هي ${v.stockQty} فقط`, `Only ${v.stockQty} left of “${v.product.nameEn || v.product.name}”`);
       }
       subtotal += price * qty;
       if (v.product.sourcingType === "IMPORT_ON_ORDER") importSubtotal += price * qty;
@@ -96,6 +102,7 @@ export async function placeOrder(input: CheckoutInput) {
     const order = await tx.order.create({
       data: {
         number,
+        locale: input.locale ?? "ar",
         customerId: customer.id,
         shipName: input.fullName,
         shipPhone: input.phone,
@@ -130,7 +137,7 @@ export async function placeOrder(input: CheckoutInput) {
     for (const { v, qty } of lines) {
       if (v.product.sourcingType !== "LOCAL_STOCK") continue;
       const updated = await tx.productVariant.updateMany({ where: { id: v.id, stockQty: { gte: qty } }, data: { stockQty: { decrement: qty } } });
-      if (updated.count !== 1) throw new OrderError(`نفدت الكمية المتاحة من «${v.product.name}»`);
+      if (updated.count !== 1) throw new OrderError(`نفدت الكمية المتاحة من «${v.product.name}»`, `“${v.product.nameEn || v.product.name}” is sold out`);
       await tx.inventoryMovement.create({ data: { variantId: v.id, type: "RESERVE", quantity: -qty, reference: number } });
     }
 

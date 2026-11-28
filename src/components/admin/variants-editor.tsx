@@ -55,7 +55,8 @@ export function VariantsEditor({
           <div key={i} className="rounded-lg border bg-gray-50 p-3">
             <div className="grid gap-2 text-sm sm:grid-cols-4 lg:grid-cols-8">
               <input value={v.sku} onChange={(e) => set(i, { sku: e.target.value })} placeholder={`SKU ${baseSku ? `(${baseSku}-${i + 1})` : ""}`} dir="ltr" className="input" aria-label="SKU" />
-              <input value={v.name} onChange={(e) => set(i, { name: e.target.value })} placeholder="اسم الخيار (مثلاً أحمر / XL)" className="input sm:col-span-2" aria-label="اسم الخيار" />
+              <input value={v.name} onChange={(e) => set(i, { name: e.target.value })} placeholder="اسم الخيار (مثلاً أحمر / XL)" className="input" aria-label="اسم الخيار" />
+              <input value={v.nameEn} onChange={(e) => set(i, { nameEn: e.target.value })} placeholder="بالإنجليزية (Red / XL)" dir="ltr" className="input" aria-label="اسم الخيار بالإنجليزية" />
               <input value={v.color} onChange={(e) => set(i, { color: e.target.value })} placeholder="اللون" className="input" aria-label="اللون" />
               <input value={v.size} onChange={(e) => set(i, { size: e.target.value })} placeholder="المقاس" className="input" aria-label="المقاس" />
               <input value={v.price} onChange={(e) => set(i, { price: e.target.value })} placeholder="سعر البيع د.ل *" inputMode="decimal" className="input font-semibold" aria-label="سعر البيع" required />

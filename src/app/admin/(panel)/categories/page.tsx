@@ -9,9 +9,10 @@ const load = () => db.category.findMany({ orderBy: [{ sortOrder: "asc" }, { name
 
 function CatForm({ c, parents }: { c?: Cat; parents: Cat[] }) {
   return (
-    <form action={saveCategory} className="grid items-end gap-2 text-sm sm:grid-cols-[1.4fr_1fr_1.2fr_70px_1fr_auto_auto]">
+    <form action={saveCategory} className="grid items-end gap-2 text-sm sm:grid-cols-[1.3fr_1.2fr_1fr_1.2fr_70px_1fr_auto_auto]">
       {c && <input type="hidden" name="id" value={c.id} />}
       <input name="name" defaultValue={c?.name} required placeholder="اسم القسم" className="input" aria-label="الاسم" />
+      <input name="nameEn" defaultValue={c?.nameEn} placeholder="الاسم بالإنجليزية" dir="ltr" className="input" aria-label="الاسم بالإنجليزية" />
       <input name="slug" defaultValue={c?.slug} placeholder="الرابط (تلقائي)" dir="ltr" className="input" aria-label="الرابط" />
       <select name="parentId" defaultValue={c?.parentId ?? ""} className="input" aria-label="القسم الرئيسي">
         <option value="">— قسم رئيسي —</option>

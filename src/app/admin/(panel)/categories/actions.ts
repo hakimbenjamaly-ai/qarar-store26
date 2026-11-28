@@ -34,7 +34,7 @@ export async function saveCategory(fd: FormData) {
   } catch (e) {
     flashRedirect(P, { err: (e as Error).message });
   }
-  const data = { name, slug, parentId, sortOrder: num(fd, "sortOrder"), active: bool(fd, "active"), ...(imageUrl ? { imageUrl } : {}) };
+  const data = { name, nameEn: str(fd, "nameEn"), slug, parentId, sortOrder: num(fd, "sortOrder"), active: bool(fd, "active"), ...(imageUrl ? { imageUrl } : {}) };
   if (bool(fd, "removeImage")) Object.assign(data, { imageUrl: null });
   if (id) {
     const before = await db.category.findUnique({ where: { id } });

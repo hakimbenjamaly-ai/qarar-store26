@@ -53,14 +53,14 @@ await admin.fill("textarea[name=specs]", "الخامة: قطن\nالمقاس: L"
 await admin.check("input[name=published]");
 await admin.setInputFiles("input[name=images]", path.resolve("tests/e2e/fixture.png"));
 // الخيار الأول + الحاسبة
-await admin.getByLabel("اسم الخيار").first().fill("أبيض / L");
+await admin.getByLabel("اسم الخيار", { exact: true }).first().fill("أبيض / L");
 await admin.locator("label:has-text('سعر الشراء من المورد') input").first().fill("10");
 await admin.locator("label:has-text('الشحن الدولي للوحدة') input").first().fill("2");
 await admin.locator("label:has-text('هامش الربح') input").first().fill("20");
 await admin.click("button:has-text('اعتماد السعر المقترح')");
 assert.equal(await admin.getByLabel("سعر البيع").first().inputValue(), "108");
 await admin.click("button:has-text('إضافة خيار')");
-await admin.getByLabel("اسم الخيار").nth(1).fill("أسود / XL");
+await admin.getByLabel("اسم الخيار", { exact: true }).nth(1).fill("أسود / XL");
 await admin.getByLabel("سعر البيع").nth(1).fill("120");
 await admin.getByLabel("السعر قبل الخصم").nth(1).fill("150");
 await shot(admin, "02-product-form");
