@@ -25,7 +25,8 @@ export async function saveUser(fd: FormData) {
     const role = await db.role.findUnique({ where: { id: roleId } });
     if (!role?.permissions.includes("users.manage")) flashRedirect(P, { err: "لا يمكنك سحب صلاحية إدارة المستخدمين من نفسك" });
   }
-  const data = { name, email, roleId, active, ...(password ? { passwordHash: await hashPassword(password) } : {}) };
+  const deliveryPartnerId = str(fd, "deliveryPartnerId") || null;
+  const data = { name, email, roleId, active, deliveryPartnerId, ...(password ? { passwordHash: await hashPassword(password) } : {}) };
   if (id) {
     const before = await db.user.findUnique({ where: { id }, select: { name: true, email: true, roleId: true, active: true } });
     await db.user.update({ where: { id }, data });

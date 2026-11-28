@@ -3,7 +3,7 @@ import { dateTime } from "@/lib/format";
 import { Submit } from "./submit";
 import { deleteAttachment, uploadAttachment } from "@/app/admin/(panel)/attachment-actions";
 
-const KINDS = { invoice: "فاتورة", waybill: "بوليصة شحن", receipt: "إيصال", packing: "قائمة تعبئة", other: "أخرى" } as const;
+const KINDS = { invoice: "فاتورة", waybill: "بوليصة شحن", receipt: "إيصال", packing: "قائمة تعبئة", signed: "كشف موقّع", other: "أخرى" } as const;
 
 export async function Attachments({ entity, entityId, back, canEdit }: { entity: string; entityId: string; back: string; canEdit: boolean }) {
   const rows = await db.attachment.findMany({ where: { entity, entityId }, orderBy: { createdAt: "desc" } });

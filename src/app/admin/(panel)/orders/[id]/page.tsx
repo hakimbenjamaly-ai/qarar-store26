@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DELIVERY_STATUS_LABELS, deliveryTone } from "@/lib/delivery-status";
 import { notFound } from "next/navigation";
 import type { OrderStatus } from "@prisma/client";
 import { requireUser, can } from "@/lib/auth";
@@ -45,6 +46,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
         },
       },
       history: { orderBy: { createdAt: "desc" }, include: { user: { select: { name: true } }, orderItem: { select: { productName: true } } } },
+      deliveries: { orderBy: { createdAt: "asc" }, include: { partner: { select: { name: true } }, settlement: { select: { id: true, number: true } } } },
       payments: { orderBy: { receivedAt: "asc" }, include: { method: true, createdBy: { select: { name: true } } } },
       paymentMethod: true,
     },
@@ -128,6 +130,27 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
               )}
             </div>
           </section>
+
+          {o.deliveries.length > 0 && (
+            <section className="card overflow-x-auto">
+              <h2 className="p-4 pb-2 font-bold">التوصيل المحلي</h2>
+              <table className="table">
+                <thead><tr><th>التوصيلة</th><th>الشركة</th><th>الحالة</th><th>للتحصيل</th><th>المحصّل</th><th>التسوية</th></tr></thead>
+                <tbody>
+                  {o.deliveries.map((d) => (
+                    <tr key={d.id}>
+                      <td>{can(u, "delivery.manage") ? <Link href={`/admin/delivery/${d.id}`} className="text-brand-700" dir="ltr">{d.number}</Link> : <span dir="ltr">{d.number}</span>}</td>
+                      <td>{d.partner.name}</td>
+                      <td><span className={`badge ${deliveryTone(d.status)}`}>{DELIVERY_STATUS_LABELS[d.status]}</span>{d.failureReason && d.status === "FAILED" && <div className="text-xs text-red-700">{d.failureReason}</div>}</td>
+                      <td>{lyd(d.codAmount)}</td>
+                      <td>{d.collected === null ? "—" : lyd(d.collected)}</td>
+                      <td>{d.settlement ? <span dir="ltr">{d.settlement.number}</span> : d.status === "DELIVERED" ? <span className="text-amber-700">لدى النورس</span> : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
 
           <section className="card overflow-x-auto">
             <h2 className="p-4 pb-2 font-bold">الدفعات والتحصيل</h2>

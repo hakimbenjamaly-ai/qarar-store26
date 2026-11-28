@@ -489,6 +489,7 @@ model DeliveryPartner {
   email           String          @default("")
   address         String          @default("")
   integrationMode IntegrationMode @default(FILE)
+  defaultFee      Decimal         @default(0) @db.Decimal(12, 2) // أجرة التوصيل المتفق عليها لكل طرد
   notes           String          @default("")
   active          Boolean         @default(true)
   points          DeliveryPoint[]
@@ -506,10 +507,13 @@ model DeliveryPoint {
   city      String
   address   String          @default("")
   phone     String          @default("")
+  active    Boolean         @default(true)
+  deliveries Delivery[]
 }
 
 model Handover {
   id          String          @id @default(cuid())
+  number      String          @unique // HND-2026-00001
   partnerId   String
   partner     DeliveryPartner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
   handedAt    DateTime
@@ -547,12 +551,29 @@ model Delivery {
   status         DeliveryStatus  @default(READY)
   deliveredAt    DateTime?
   failureReason  String          @default("")
+  attempts       Int             @default(0)
+  pointId        String?
+  point          DeliveryPoint?  @relation(fields: [pointId], references: [id], onDelete: SetNull)
   settlementId   String?
   settlement     Settlement?     @relation(fields: [settlementId], references: [id], onDelete: SetNull)
   items          DeliveryItem[]
   returns        Return[]
+  events         DeliveryEvent[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+}
+
+model DeliveryEvent {
+  id         String         @id @default(cuid())
+  deliveryId String
+  delivery   Delivery       @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  status     DeliveryStatus
+  note       String         @default("")
+  source     String         @default("admin") // admin | partner | import
+  userId     String?
+  createdAt  DateTime       @default(now())
+
+  @@index([deliveryId])
 }
 
 model DeliveryItem {
@@ -579,6 +600,9 @@ model Return {
 
 model Settlement {
   id           String          @id @default(cuid())
+  number       String          @unique // STL-2026-00001
+  reference    String          @default("") // رقم التحويل أو إيصال الاستلام
+  createdAt    DateTime        @default(now())
   partnerId    String
   partner      DeliveryPartner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
   periodFrom   DateTime

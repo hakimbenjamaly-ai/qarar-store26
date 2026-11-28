@@ -8,7 +8,7 @@ import { saveUpload } from "@/lib/uploads";
 import { flashRedirect, str } from "@/lib/action-utils";
 import type { Permission } from "@/lib/permissions";
 
-const ENTITY_PERM: Record<string, Permission> = { PurchaseOrder: "purchasing.manage", Shipment: "shipping.manage" };
+const ENTITY_PERM: Record<string, Permission> = { PurchaseOrder: "purchasing.manage", Shipment: "shipping.manage", Delivery: "delivery.manage", Handover: "delivery.manage", Settlement: "payments.manage" };
 
 export async function uploadAttachment(fd: FormData) {
   const entity = str(fd, "entity");

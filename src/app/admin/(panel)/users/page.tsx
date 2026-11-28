@@ -8,19 +8,24 @@ import { saveRole, saveUser } from "./actions";
 
 export default async function UsersPage({ searchParams }: { searchParams: Promise<{ ok?: string; err?: string }> }) {
   await requireUser("users.manage");
-  const [users, roles] = await Promise.all([
-    db.user.findMany({ orderBy: { createdAt: "asc" }, include: { role: true } }),
+  const [users, roles, partners] = await Promise.all([
+    db.user.findMany({ orderBy: { createdAt: "asc" }, include: { role: true, deliveryPartner: true } }),
     db.role.findMany({ orderBy: { system: "desc" }, include: { _count: { select: { users: true } } } }),
+    db.deliveryPartner.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   type U = (typeof users)[number];
   const UserForm = ({ u }: { u?: U }) => (
-    <form action={saveUser} className="grid items-center gap-2 text-sm md:grid-cols-[1fr_1.2fr_1fr_1fr_auto_auto]">
+    <form action={saveUser} className="grid items-center gap-2 text-sm md:grid-cols-[1fr_1.2fr_1fr_1fr_1fr_auto_auto]">
       {u && <input type="hidden" name="id" value={u.id} />}
       <input name="name" defaultValue={u?.name} required placeholder="الاسم" className="input" aria-label="الاسم" />
       <input name="email" type="email" defaultValue={u?.email} required placeholder="البريد" dir="ltr" className="input" aria-label="البريد" />
       <select name="roleId" defaultValue={u?.roleId ?? ""} required className="input" aria-label="الدور">
         <option value="" disabled>الدور</option>
         {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+      </select>
+      <select name="deliveryPartnerId" defaultValue={u?.deliveryPartnerId ?? ""} className="input" aria-label="شركة التوزيع" title="لموظفي شركة التوزيع فقط: يرون طرود شركتهم">
+        <option value="">— ليس موظف توزيع —</option>
+        {partners.map((p) => <option key={p.id} value={p.id}>موظف لدى {p.name}</option>)}
       </select>
       <input name="password" type="password" minLength={u ? undefined : 10} required={!u} placeholder={u ? "كلمة مرور جديدة (اختياري)" : "كلمة المرور (10+)"} dir="ltr" className="input" autoComplete="new-password" aria-label="كلمة المرور" />
       {u ? <label className="flex items-center gap-1"><input type="checkbox" name="active" defaultChecked={u.active} /> نشط</label> : <span />}
@@ -38,7 +43,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
           {users.map((u) => (
             <details key={u.id} className="p-3">
               <summary className="cursor-pointer text-sm">
-                <b>{u.name}</b> <span dir="ltr">{u.email}</span> · {u.role.name} {!u.active && <span className="badge bg-gray-200">موقوف</span>} <span className="text-xs text-gray-400">آخر دخول: {dateTime(u.lastLoginAt)}</span>
+                <b>{u.name}</b> <span dir="ltr">{u.email}</span> · {u.role.name}{u.deliveryPartner && ` (${u.deliveryPartner.name})`} {!u.active && <span className="badge bg-gray-200">موقوف</span>} <span className="text-xs text-gray-400">آخر دخول: {dateTime(u.lastLoginAt)}</span>
               </summary>
               <div className="mt-3"><UserForm u={u} /></div>
             </details>
