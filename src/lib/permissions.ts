@@ -13,11 +13,11 @@ export const PERMISSIONS = {
   "settings.manage": "إعدادات المتجر",
   "users.manage": "المستخدمون والصلاحيات",
   "audit.view": "سجل العمليات",
-  "purchasing.manage": "المشتريات الخارجية (المرحلة ٢)",
-  "shipping.manage": "الشحن الدولي (المرحلة ٢)",
-  "delivery.manage": "التوزيع المحلي (المرحلة ٣)",
-  "delivery.partner": "بوابة موظف النورس (المرحلة ٣)",
-  "reports.view": "التقارير (المرحلة ٤)",
+  "purchasing.manage": "المشتريات الخارجية",
+  "shipping.manage": "الشحن الدولي",
+  "delivery.manage": "التوزيع المحلي",
+  "delivery.partner": "بوابة موظف النورس",
+  "reports.view": "التقارير",
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

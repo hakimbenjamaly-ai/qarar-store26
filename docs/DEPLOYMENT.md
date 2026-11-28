@@ -20,6 +20,10 @@ cp .env.example .env
 #   DATABASE_URL="postgresql://qarar:كلمة-المرور@localhost:5432/qarar"
 #   UPLOAD_DIR="/home/qarar/uploads"
 #   COOKIE_SECURE="true"
+#   SITE_URL="https://your-domain.ly"          # لروابط التتبع في رسائل العملاء والبريد
+#   CRON_SECRET="سلسلة-عشوائية-طويلة"
+#   (اختياري) بريد الإشعارات:
+#   SMTP_HOST="smtp.example.com"  SMTP_PORT="587"  SMTP_USER="..."  SMTP_PASS="..."  SMTP_FROM="قرار <no-reply@your-domain.ly>"
 npm ci
 npx prisma migrate deploy
 npm run db:seed
@@ -91,6 +95,16 @@ find /home/qarar/backups -maxdepth 1 -type d -mtime +14 -exec rm -rf {} +
 
 أضفه إلى cron للمستخدم qarar: `0 3 * * * /home/qarar/backup.sh`. انسخ مجلد backups دورياً إلى مكان آخر خارج الخادم.
 الاستعادة: `pg_restore -c -d qarar db.dump` ثم فك ملف الصور في `/home/qarar/uploads`.
+
+## 5.1) إرسال إشعارات البريد دورياً
+
+تُرسل الإشعارات تلقائياً عند فتح لوحة الإدارة. لإرسالها حتى عند عدم فتح اللوحة أضف مهمة cron كل 5 دقائق (`crontab -e` للمستخدم qarar):
+
+```
+*/5 * * * * curl -fsS "http://127.0.0.1:3000/api/cron/notify?key=CRON_SECRET" > /dev/null
+```
+
+استبدل CRON_SECRET بالقيمة في `.env`. بدون SMTP مضبوط يُرجع المسار `configured: false` ولا يرسل شيئاً.
 
 ## 6) التحديث لإصدار جديد
 

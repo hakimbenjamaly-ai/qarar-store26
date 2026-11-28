@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import type { Permission } from "@/lib/permissions";
 import { logout } from "../actions";
+import { dispatchEmails } from "@/lib/notify";
 
 const NAV: { href: string; label: string; perm?: Permission }[] = [
   { href: "/admin", label: "لوحة المؤشرات", perm: "dashboard.view" },
@@ -14,6 +15,8 @@ const NAV: { href: string; label: string; perm?: Permission }[] = [
   { href: "/admin/delivery", label: "التوزيع المحلي (النورس)", perm: "delivery.manage" },
   { href: "/admin/delivery/settlements", label: "التسويات مع النورس", perm: "payments.manage" },
   { href: "/admin/partner", label: "بوابة شركة التوزيع", perm: "delivery.partner" },
+  { href: "/admin/reports", label: "التقارير", perm: "reports.view" },
+  { href: "/admin/expenses", label: "المصروفات", perm: "payments.manage" },
   { href: "/admin/products", label: "المنتجات", perm: "products.manage" },
   { href: "/admin/categories", label: "الأقسام", perm: "categories.manage" },
   { href: "/admin/suppliers", label: "الموردون", perm: "costs.view" },
@@ -28,6 +31,8 @@ const NAV: { href: string; label: string; perm?: Permission }[] = [
 
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  // إرسال إشعارات البريد المعلّقة في الخلفية (لا يؤخر عرض الصفحة؛ ولا يعمل بدون SMTP)
+  void dispatchEmails().catch(() => {});
   const [s, unread] = await Promise.all([getSettings(), db.notification.count({ where: { read: false } })]);
   // موظف شركة التوزيع لا يرى إشعارات المتجر الداخلية
   const partnerOnly = user.permissions.has("delivery.partner") && !user.permissions.has("orders.view");

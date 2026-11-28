@@ -9,6 +9,11 @@ import { allowedNext, STATUS_LABELS, statusTone } from "@/lib/order-status";
 import { Field, Flash, PageHeader } from "@/components/admin/ui";
 import { Submit } from "@/components/admin/submit";
 import { addPayment, deletePayment, updateOrderInfo, updateStatus } from "../actions";
+import { headers } from "next/headers";
+import { getSettings } from "@/lib/settings";
+import { money } from "@/lib/i18n";
+import { intlPhone, renderTemplate, TEMPLATE_KEYS, TEMPLATE_LABELS, templateFor } from "@/lib/messages";
+import { CustomerMessages } from "./customer-messages";
 
 const KIND = { DEPOSIT: "عربون", PAYMENT: "دفعة", REFUND: "استرداد" } as const;
 
@@ -60,6 +65,21 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
 
   const paid = o.payments.reduce((s, p) => s + (p.kind === "REFUND" ? -1 : 1) * Number(p.amount), 0);
   const remaining = Number(o.total) - paid;
+  const st = await getSettings();
+  const loc = o.locale === "en" ? "en" : "ar";
+  const h = await headers();
+  const base = (process.env.SITE_URL || `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host") ?? ""}`).replace(/\/$/, "");
+  const vars = {
+    name: o.shipName,
+    order: o.number,
+    total: money(Number(o.total), loc),
+    remaining: money(Math.max(0, remaining), loc),
+    track_link: `${base}/track?n=${encodeURIComponent(o.number)}&p=${encodeURIComponent(o.shipPhone)}`,
+    store: st.storeName,
+  };
+  const msgTemplates = TEMPLATE_KEYS.map((k) => ({ key: k, label: TEMPLATE_LABELS[k], body: renderTemplate(templateFor(st.templates, k, loc), vars) }));
+  const msgLog = await db.messageLog.findMany({ where: { orderId: o.id }, orderBy: { createdAt: "desc" }, take: 10 });
+  const logUsers = new Map((await db.user.findMany({ where: { id: { in: msgLog.map((m) => m.userId ?? "") } }, select: { id: true, name: true } })).map((x) => [x.id, x.name]));
   const orderOptions = [...new Set(o.items.flatMap((i) => allowedNext(i.status, i.sourcing)))];
   const live = o.items.filter((i) => i.status !== "CANCELLED");
   const unitCost = (i: (typeof o.items)[number]) => i.actualUnitCostLyd ?? i.estUnitCostLyd;
@@ -221,7 +241,20 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             <div dir="ltr" className="text-right">{o.shipPhone}</div>
             {o.shipWhatsapp && <a className="block text-brand-700" href={`https://wa.me/218${o.shipWhatsapp.slice(1)}`} target="_blank">واتساب: {o.shipWhatsapp}</a>}
             <div className="text-gray-500">{o.customer._count.orders} طلب لهذا العميل</div>
+            <div className="text-gray-500">لغة العميل: {loc === "en" ? "الإنجليزية" : "العربية"}</div>
             {o.customerNote && <div className="mt-2 rounded bg-amber-50 p-2">ملاحظة العميل: {o.customerNote}</div>}
+          </section>
+          <section className="card space-y-2 p-4 text-sm">
+            <h2 className="font-bold">رسائل للعميل</h2>
+            <p className="text-xs text-gray-500">رسالة جاهزة بلغة العميل ({loc === "en" ? "English" : "العربية"}) تُفتح في واتساب أو الرسائل على جهازك وترسلها بنفسك.</p>
+            <CustomerMessages orderId={o.id} templates={msgTemplates} waPhone={intlPhone(o.shipWhatsapp || o.shipPhone)} smsPhone={intlPhone(o.shipPhone)} dir={loc === "en" ? "ltr" : "rtl"} />
+            {msgLog.length > 0 && (
+              <ul className="mt-2 space-y-1 border-t pt-2 text-xs text-gray-600" data-testid="msg-log">
+                {msgLog.map((m) => (
+                  <li key={m.id}>{dateTime(m.createdAt)} · {m.channel === "whatsapp" ? "واتساب" : "SMS"} · {TEMPLATE_LABELS[m.template as keyof typeof TEMPLATE_LABELS] ?? m.template} · {logUsers.get(m.userId ?? "") ?? ""}</li>
+                ))}
+              </ul>
+            )}
           </section>
           <form action={updateOrderInfo} className="card space-y-3 p-4 text-sm">
             <h2 className="font-bold">بيانات التوصيل</h2>
