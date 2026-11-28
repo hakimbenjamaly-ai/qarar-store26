@@ -711,14 +711,49 @@ model ContactMessage {
 }
 
 model Notification {
+  id          String    @id @default(cuid())
+  channel     String    @default("dashboard") // dashboard / email / sms / whatsapp
+  event       String
+  title       String
+  body        String    @default("")
+  link        String    @default("")
+  read        Boolean   @default(false)
+  emailStatus String? // null = لم يُعالج، sent، failed، skipped
+  emailError  String    @default("")
+  emailedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([emailStatus, createdAt])
+}
+
+// المصروفات التشغيلية (إيجار، رواتب، إعلانات...) لحساب صافي الربح
+model Expense {
+  id         String   @id @default(cuid())
+  date       DateTime
+  category   String
+  amount     Decimal  @db.Decimal(12, 2)
+  note       String   @default("")
+  receiptUrl String?
+  userId     String?
+  createdAt  DateTime @default(now())
+
+  @@index([date])
+}
+
+// سجل الرسائل المرسلة للعملاء (واتساب/SMS تُفتح يدوياً من جهاز الموظف، والبريد يُرسل آلياً)
+model MessageLog {
   id        String   @id @default(cuid())
-  channel   String   @default("dashboard") // dashboard / email / sms / whatsapp
-  event     String
-  title     String
-  body      String   @default("")
-  link      String   @default("")
-  read      Boolean  @default(false)
+  orderId   String?
+  channel   String // whatsapp | sms | email
+  template  String
+  to        String
+  body      String
+  status    String // opened | sent | failed
+  error     String   @default("")
+  userId    String?
   createdAt DateTime @default(now())
+
+  @@index([orderId])
 }
 
 // مرفقات عامة: فواتير الموردين، بوالص الشحن، إيصالات...

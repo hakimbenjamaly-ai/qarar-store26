@@ -139,6 +139,13 @@ export async function placeOrder(input: CheckoutInput) {
       const updated = await tx.productVariant.updateMany({ where: { id: v.id, stockQty: { gte: qty } }, data: { stockQty: { decrement: qty } } });
       if (updated.count !== 1) throw new OrderError(`نفدت الكمية المتاحة من «${v.product.name}»`, `“${v.product.nameEn || v.product.name}” is sold out`);
       await tx.inventoryMovement.create({ data: { variantId: v.id, type: "RESERVE", quantity: -qty, reference: number } });
+      // تنبيه نقص المخزون عند عبور الحد لأول مرة فقط
+      const left = v.stockQty - qty;
+      if (settings.lowStockThreshold > 0 && v.stockQty > settings.lowStockThreshold && left <= settings.lowStockThreshold) {
+        await tx.notification.create({
+          data: { event: "stock.low", title: `مخزون منخفض: ${v.product.name}${v.name ? ` – ${v.name}` : ""}`, body: `المتبقي ${left} (الحد ${settings.lowStockThreshold})`, link: `/admin/products/${v.productId}` },
+        });
+      }
     }
 
     await tx.notification.create({

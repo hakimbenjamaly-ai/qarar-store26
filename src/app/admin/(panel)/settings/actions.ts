@@ -8,6 +8,8 @@ import { audit } from "@/lib/audit";
 import { getSettings, saveSettings } from "@/lib/settings";
 import { saveUpload } from "@/lib/uploads";
 import { bool, flashRedirect, num, str } from "@/lib/action-utils";
+import { EMAIL_EVENTS, parseEmails, sendMail, smtpConfigured } from "@/lib/notify";
+import { DEFAULT_TEMPLATES, TEMPLATE_KEYS } from "@/lib/messages";
 
 const P = "/admin/settings";
 const done = (tab: string, ok = "تم الحفظ") => {
@@ -131,4 +133,48 @@ export async function addRate(fd: FormData) {
   const r = await db.exchangeRate.create({ data: { currency, rateToLyd: new Prisma.Decimal(rate.toFixed(6)), note: str(fd, "note") } });
   await audit(u.id, "create", "ExchangeRate", r.id, undefined, r);
   done("rates", "تم تسجيل سعر الصرف");
+}
+
+export async function saveNotifications(fd: FormData) {
+  const u = await requireUser("settings.manage");
+  const before = await getSettings();
+  const emails = parseEmails(str(fd, "notifyEmails"));
+  const after = await saveSettings({
+    notifyEmails: emails.join(", "),
+    emailEvents: Object.keys(EMAIL_EVENTS).filter((k) => bool(fd, `ev_${k}`)),
+    lowStockThreshold: Math.max(0, Math.floor(num(fd, "lowStockThreshold"))),
+  });
+  await audit(u.id, "update", "Settings", "notifications", before, after);
+  done("notifications");
+}
+
+export async function sendTestEmail() {
+  await requireUser("settings.manage");
+  const s = await getSettings();
+  const to = parseEmails(s.notifyEmails);
+  if (!smtpConfigured()) flashRedirect(`${P}?tab=notifications`, { err: "البريد غير مضبوط على الخادم (SMTP_HOST و SMTP_FROM)" });
+  if (to.length === 0) flashRedirect(`${P}?tab=notifications`, { err: "أضف بريداً واحداً على الأقل واحفظ أولاً" });
+  try {
+    await sendMail(to, `[${s.storeName}] رسالة تجريبية`, "هذه رسالة تجريبية من لوحة إدارة المتجر للتأكد من إعدادات البريد.");
+  } catch (e) {
+    flashRedirect(`${P}?tab=notifications`, { err: `فشل الإرسال: ${(e as Error).message}` });
+  }
+  flashRedirect(`${P}?tab=notifications`, { ok: `أُرسلت رسالة تجريبية إلى ${to.join(", ")}` });
+}
+
+export async function saveTemplates(fd: FormData) {
+  const u = await requireUser("settings.manage");
+  const before = await getSettings();
+  const templates: Record<string, { ar: string; en: string }> = {};
+  for (const k of TEMPLATE_KEYS) {
+    const ar = str(fd, `${k}.ar`);
+    const en = str(fd, `${k}.en`);
+    // نحفظ فقط ما يختلف عن النص الافتراضي
+    const a = ar === DEFAULT_TEMPLATES[k].ar ? "" : ar;
+    const e = en === DEFAULT_TEMPLATES[k].en ? "" : en;
+    if (a || e) templates[k] = { ar: a, en: e };
+  }
+  const after = await saveSettings({ templates });
+  await audit(u.id, "update", "Settings", "templates", before.templates, after.templates);
+  done("templates");
 }

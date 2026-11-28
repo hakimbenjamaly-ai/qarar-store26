@@ -94,3 +94,22 @@ export async function updateOrderInfo(fd: FormData) {
   await audit(u.id, "update", "Order", id, o, data);
   flashRedirect(back(id), { ok: "تم حفظ بيانات الطلب" });
 }
+
+/** تسجيل فتح رسالة للعميل عبر واتساب/SMS (الإرسال نفسه يدوي من جهاز الموظف) */
+export async function logCustomerMessage(input: { orderId: string; template: string; channel: "whatsapp" | "sms"; body: string }) {
+  const u = await requireUser("orders.view");
+  const o = await db.order.findUnique({ where: { id: input.orderId }, select: { id: true, shipPhone: true, shipWhatsapp: true } });
+  if (!o || !["whatsapp", "sms"].includes(input.channel)) return;
+  await db.messageLog.create({
+    data: {
+      orderId: o.id,
+      channel: input.channel,
+      template: String(input.template).slice(0, 60),
+      to: input.channel === "whatsapp" ? o.shipWhatsapp || o.shipPhone : o.shipPhone,
+      body: String(input.body).slice(0, 2000),
+      status: "opened",
+      userId: u.id,
+    },
+  });
+  revalidatePath(back(o.id));
+}

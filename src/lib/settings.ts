@@ -31,6 +31,11 @@ export type StoreSettings = {
   purchasePolicyEn: string;
   returnPolicyEn: string;
   faqEn: { q: string; a: string }[];
+  // التقارير والإشعارات (المرحلة ٤)
+  lowStockThreshold: number;
+  notifyEmails: string; // بريد الإدارة مفصول بفواصل
+  emailEvents: string[];
+  templates: Record<string, { ar: string; en: string }>;
 };
 
 export const DEFAULT_SETTINGS: StoreSettings = {
@@ -60,6 +65,10 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   purchasePolicyEn: "",
   returnPolicyEn: "",
   faqEn: [],
+  lowStockThreshold: 3,
+  notifyEmails: "",
+  emailEvents: ["order.new", "delivery.failed", "shipment.arrived", "contact.new", "stock.low", "delivery.amount_mismatch"],
+  templates: {},
   minMarginPercentAlert: 15,
 };
 

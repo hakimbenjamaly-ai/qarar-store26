@@ -5,7 +5,9 @@ import { dateTime } from "@/lib/format";
 import { getSettings } from "@/lib/settings";
 import { Field, Flash, PageHeader } from "@/components/admin/ui";
 import { Submit } from "@/components/admin/submit";
-import { addRate, saveCity, saveContent, savePaymentMethod, savePricing, saveStore } from "./actions";
+import { addRate, saveCity, saveContent, saveNotifications, savePaymentMethod, savePricing, saveStore, saveTemplates, sendTestEmail } from "./actions";
+import { EMAIL_EVENTS, smtpConfigured } from "@/lib/notify";
+import { DEFAULT_TEMPLATES, TEMPLATE_KEYS, TEMPLATE_LABELS } from "@/lib/messages";
 
 const TABS = [
   ["store", "بيانات المتجر"],
@@ -14,6 +16,8 @@ const TABS = [
   ["cities", "المدن ورسوم التوصيل"],
   ["rates", "أسعار الصرف"],
   ["pricing", "التسعير والعربون"],
+  ["notifications", "إشعارات البريد"],
+  ["templates", "قوالب رسائل العملاء"],
 ] as const;
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string; ok?: string; err?: string }> }) {
@@ -91,6 +95,69 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <Field label="تنبيه عند هامش ربح أقل من (%)"><input name="minMarginPercentAlert" type="number" min={0} defaultValue={s.minMarginPercentAlert} className="input" /></Field>
           <div><Submit>حفظ</Submit></div>
         </form>
+      )}
+
+      {tab === "notifications" && <NotificationsTab s={s} />}
+
+      {tab === "templates" && (
+        <form action={saveTemplates} className="space-y-4">
+          <p className="text-sm text-gray-600">
+            تُستخدم هذه القوالب في صفحة الطلب لفتح واتساب أو الرسائل النصية برسالة جاهزة يرسلها الموظف من جهازه. لا يوجد إرسال آلي.
+            المتغيرات المتاحة: <code dir="ltr">{"{name} {order} {total} {remaining} {track_link} {store}"}</code>
+          </p>
+          {TEMPLATE_KEYS.map((k) => (
+            <div key={k} className="card grid gap-3 p-4 md:grid-cols-2">
+              <div className="font-semibold md:col-span-2">{TEMPLATE_LABELS[k]}</div>
+              <Field label="بالعربية"><textarea name={`${k}.ar`} defaultValue={s.templates[k]?.ar || DEFAULT_TEMPLATES[k].ar} rows={3} className="input" /></Field>
+              <Field label="بالإنجليزية"><textarea name={`${k}.en`} defaultValue={s.templates[k]?.en || DEFAULT_TEMPLATES[k].en} rows={3} dir="ltr" className="input" /></Field>
+            </div>
+          ))}
+          <Submit>حفظ القوالب</Submit>
+        </form>
+      )}
+    </div>
+  );
+}
+
+async function NotificationsTab({ s }: { s: Awaited<ReturnType<typeof getSettings>> }) {
+  const ok = smtpConfigured();
+  const recent = await db.notification.findMany({ where: { emailStatus: { in: ["sent", "failed"] } }, orderBy: { createdAt: "desc" }, take: 10 });
+  return (
+    <div className="space-y-4">
+      <div className={`card p-4 text-sm ${ok ? "border-green-300 bg-green-50" : "border-amber-300 bg-amber-50"}`}>
+        {ok
+          ? "البريد مضبوط على الخادم. ستُرسل الإشعارات المختارة أدناه إلى العناوين المحددة."
+          : "البريد غير مضبوط بعد: أضف متغيرات SMTP_HOST و SMTP_PORT و SMTP_USER و SMTP_PASS و SMTP_FROM على الخادم (راجع دليل النشر). حتى ذلك الحين تظهر الإشعارات داخل اللوحة فقط."}
+      </div>
+      <form action={saveNotifications} className="card grid max-w-2xl gap-4 p-5">
+        <Field label="بريد الإدارة لاستقبال الإشعارات" hint="يمكن إدخال أكثر من عنوان مفصولة بفواصل">
+          <input name="notifyEmails" defaultValue={s.notifyEmails} dir="ltr" className="input" />
+        </Field>
+        <div>
+          <div className="label">الأحداث التي تُرسل بالبريد</div>
+          <div className="grid gap-1 sm:grid-cols-2">
+            {Object.entries(EMAIL_EVENTS).map(([k, label]) => (
+              <label key={k} className="flex items-center gap-2 text-sm"><input type="checkbox" name={`ev_${k}`} defaultChecked={s.emailEvents.includes(k)} /> {label}</label>
+            ))}
+          </div>
+        </div>
+        <Field label="تنبيه انخفاض المخزون المحلي عند وصول الكمية إلى" hint="0 = إيقاف التنبيه">
+          <input name="lowStockThreshold" type="number" min={0} defaultValue={s.lowStockThreshold} className="input w-32" />
+        </Field>
+        <div><Submit>حفظ</Submit></div>
+      </form>
+      {ok && <form action={sendTestEmail}><Submit className="btn-outline">إرسال رسالة تجريبية</Submit></form>}
+      {recent.length > 0 && (
+        <div className="card overflow-x-auto">
+          <table className="table">
+            <thead><tr><th>الإشعار</th><th>حالة البريد</th><th>الوقت</th></tr></thead>
+            <tbody>
+              {recent.map((n) => (
+                <tr key={n.id}><td>{n.title}</td><td>{n.emailStatus === "sent" ? "أُرسل" : `فشل: ${n.emailError ?? ""}`}</td><td>{dateTime(n.emailedAt ?? n.createdAt)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
