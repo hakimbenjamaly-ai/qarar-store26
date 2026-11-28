@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { normalizePhone } from "@/lib/format";
+import { getDict } from "@/lib/locale";
 
 const schema = z.object({
   number: z.string().trim(),
@@ -14,17 +15,18 @@ const schema = z.object({
 });
 
 export async function submitReview(_: unknown, fd: FormData): Promise<{ ok: boolean; msg: string }> {
+  const { t } = await getDict();
   const p = schema.safeParse(Object.fromEntries(fd));
-  if (!p.success) return { ok: false, msg: "اختر عدد النجوم" };
+  if (!p.success) return { ok: false, msg: t.reviewPickStars };
   const phone = normalizePhone(p.data.phone);
   const order = await db.order.findFirst({
     where: { number: p.data.number, shipPhone: phone ?? "-" },
     include: { items: { where: { status: "DELIVERED" }, include: { variant: { select: { productId: true } } } } },
   });
-  if (!order || !order.items.some((i) => i.variant.productId === p.data.productId)) return { ok: false, msg: "لا يمكن تقييم هذا المنتج" };
+  if (!order || !order.items.some((i) => i.variant.productId === p.data.productId)) return { ok: false, msg: t.reviewNotAllowed };
   const exists = await db.review.findUnique({ where: { productId_orderId: { productId: p.data.productId, orderId: order.id } } });
-  if (exists) return { ok: false, msg: "تم تقييم هذا المنتج مسبقاً" };
+  if (exists) return { ok: false, msg: t.reviewExists };
   await db.review.create({ data: { productId: p.data.productId, orderId: order.id, customerId: order.customerId, rating: p.data.rating, body: p.data.body } });
   revalidatePath("/track");
-  return { ok: true, msg: "شكراً لك! سيظهر تقييمك بعد مراجعته." };
+  return { ok: true, msg: t.reviewThanks };
 }

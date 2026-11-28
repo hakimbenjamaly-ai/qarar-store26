@@ -22,6 +22,15 @@ export type StoreSettings = {
   importDepositPercent: number; // نسبة العربون على البنود المستوردة (0 = بدون عربون)
   priceRoundTo: number;
   minMarginPercentAlert: number;
+  // نصوص المتجر بالإنجليزية (اختيارية؛ عند فراغها يظهر النص العربي)
+  taglineEn: string;
+  addressEn: string;
+  workingHoursEn: string;
+  heroTitleEn: string;
+  heroTextEn: string;
+  purchasePolicyEn: string;
+  returnPolicyEn: string;
+  faqEn: { q: string; a: string }[];
 };
 
 export const DEFAULT_SETTINGS: StoreSettings = {
@@ -43,6 +52,14 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   faq: [],
   importDepositPercent: 0,
   priceRoundTo: 0.5,
+  taglineEn: "",
+  addressEn: "",
+  workingHoursEn: "",
+  heroTitleEn: "",
+  heroTextEn: "",
+  purchasePolicyEn: "",
+  returnPolicyEn: "",
+  faqEn: [],
   minMarginPercentAlert: 15,
 };
 

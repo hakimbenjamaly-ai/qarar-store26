@@ -3,6 +3,7 @@ export type VariantRow = {
   id?: string;
   sku: string;
   name: string;
+  nameEn: string;
   size: string;
   color: string;
   price: string;
@@ -24,6 +25,7 @@ export type VariantRow = {
 export const emptyVariant = (sku = ""): VariantRow => ({
   sku,
   name: "",
+  nameEn: "",
   size: "",
   color: "",
   price: "",

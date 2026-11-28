@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { normalizePhone } from "@/lib/format";
+import { getDict } from "@/lib/locale";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(100),
@@ -12,11 +13,12 @@ const schema = z.object({
 });
 
 export async function sendContact(_: unknown, fd: FormData): Promise<{ ok: boolean; msg: string }> {
+  const { t } = await getDict();
   const p = schema.safeParse(Object.fromEntries(fd));
-  if (!p.success) return { ok: false, msg: "يرجى تعبئة الاسم ورقم الهاتف والرسالة" };
+  if (!p.success) return { ok: false, msg: t.errContact };
   const phone = normalizePhone(p.data.phone);
-  if (!phone) return { ok: false, msg: "رقم الهاتف غير صحيح" };
+  if (!phone) return { ok: false, msg: t.phoneInvalid };
   await db.contactMessage.create({ data: { ...p.data, phone } });
   await db.notification.create({ data: { event: "contact.new", title: `رسالة جديدة من ${p.data.name}`, link: "/admin/messages" } });
-  return { ok: true, msg: "تم إرسال رسالتك، وسنتواصل معك قريباً." };
+  return { ok: true, msg: t.contactSent };
 }

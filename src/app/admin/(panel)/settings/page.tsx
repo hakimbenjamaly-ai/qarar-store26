@@ -36,6 +36,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <form action={saveStore} className="card grid gap-4 p-5 md:grid-cols-2">
           <Field label="اسم المتجر"><input name="storeName" defaultValue={s.storeName} className="input" /></Field>
           <Field label="الشعار النصي (يظهر أسفل الموقع)"><input name="tagline" defaultValue={s.tagline} className="input" /></Field>
+          <Field label="الشعار النصي بالإنجليزية"><input name="taglineEn" defaultValue={s.taglineEn} dir="ltr" className="input" /></Field>
           <Field label="الشعار (صورة)" hint="PNG أو SVG بخلفية شفافة يفضَّل">
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -49,23 +50,33 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <Field label="واتساب"><input name="whatsapp" defaultValue={s.whatsapp} dir="ltr" className="input" /></Field>
           <Field label="البريد الإلكتروني"><input name="email" defaultValue={s.email} dir="ltr" className="input" /></Field>
           <Field label="العنوان"><input name="address" defaultValue={s.address} className="input" /></Field>
+          <Field label="العنوان بالإنجليزية"><input name="addressEn" defaultValue={s.addressEn} dir="ltr" className="input" /></Field>
           <Field label="أوقات العمل"><input name="workingHours" defaultValue={s.workingHours} className="input" /></Field>
+          <Field label="أوقات العمل بالإنجليزية"><input name="workingHoursEn" defaultValue={s.workingHoursEn} dir="ltr" className="input" /></Field>
           <Field label="فيسبوك"><input name="facebook" defaultValue={s.facebook} dir="ltr" className="input" /></Field>
           <Field label="إنستغرام"><input name="instagram" defaultValue={s.instagram} dir="ltr" className="input" /></Field>
           <Field label="عنوان الواجهة الرئيسية"><input name="heroTitle" defaultValue={s.heroTitle} className="input" /></Field>
-          <Field label="نص الواجهة الرئيسية" className="md:col-span-2"><textarea name="heroText" defaultValue={s.heroText} rows={2} className="input" /></Field>
+          <Field label="عنوان الواجهة بالإنجليزية"><input name="heroTitleEn" defaultValue={s.heroTitleEn} dir="ltr" className="input" /></Field>
+          <Field label="نص الواجهة الرئيسية"><textarea name="heroText" defaultValue={s.heroText} rows={2} className="input" /></Field>
+          <Field label="نص الواجهة بالإنجليزية"><textarea name="heroTextEn" defaultValue={s.heroTextEn} rows={2} dir="ltr" className="input" /></Field>
+          <p className="text-xs text-gray-500 md:col-span-2">الحقول الإنجليزية اختيارية: إن تُركت فارغة يرى زائر النسخة الإنجليزية النص العربي.</p>
           <div><Submit>حفظ</Submit></div>
         </form>
       )}
 
       {tab === "content" && (
-        <form action={saveContent} className="card space-y-4 p-5">
+        <form action={saveContent} className="card grid gap-4 p-5 md:grid-cols-2">
           <Field label="سياسة الشراء"><textarea name="purchasePolicy" defaultValue={s.purchasePolicy} rows={6} className="input" /></Field>
+          <Field label="سياسة الشراء بالإنجليزية"><textarea name="purchasePolicyEn" defaultValue={s.purchasePolicyEn} rows={6} dir="ltr" className="input" /></Field>
           <Field label="سياسة الاستبدال والاسترجاع"><textarea name="returnPolicy" defaultValue={s.returnPolicy} rows={6} className="input" /></Field>
+          <Field label="سياسة الاستبدال والاسترجاع بالإنجليزية"><textarea name="returnPolicyEn" defaultValue={s.returnPolicyEn} rows={6} dir="ltr" className="input" /></Field>
           <Field label="الأسئلة الشائعة" hint="اكتب كل سؤال في سطر وجوابه في السطر التالي، وافصل بين الأسئلة بسطر فارغ">
             <textarea name="faq" defaultValue={s.faq.map((f) => `${f.q}\n${f.a}`).join("\n\n")} rows={12} className="input" />
           </Field>
-          <Submit>حفظ</Submit>
+          <Field label="الأسئلة الشائعة بالإنجليزية" hint="بنفس الصيغة؛ إن تُركت فارغة تظهر الأسئلة العربية">
+            <textarea name="faqEn" defaultValue={s.faqEn.map((f) => `${f.q}\n${f.a}`).join("\n\n")} rows={12} dir="ltr" className="input" />
+          </Field>
+          <div><Submit>حفظ</Submit></div>
         </form>
       )}
 
@@ -91,10 +102,16 @@ async function PaymentsTab() {
     <div className="space-y-3">
       <p className="text-sm text-gray-600">طرق الدفع المفعّلة فقط تظهر للعميل عند إتمام الطلب. الدفع الإلكتروني لا يعمل قبل ربط بوابة دفع فعلية، لذا لا تفعّله الآن.</p>
       {methods.map((m) => (
-        <form key={m.id} action={savePaymentMethod} className="card grid gap-3 p-4 text-sm md:grid-cols-[200px_1fr_80px_auto_auto]">
+        <form key={m.id} action={savePaymentMethod} className="card grid gap-3 p-4 text-sm md:grid-cols-[180px_1fr_80px_auto_auto]">
           <input type="hidden" name="id" value={m.id} />
-          <input name="name" defaultValue={m.name} className="input" aria-label="الاسم" />
-          <textarea name="instructions" defaultValue={m.instructions} rows={2} placeholder="تعليمات للعميل (مثل بيانات الحساب المصرفي)" className="input" />
+          <div className="space-y-2">
+            <input name="name" defaultValue={m.name} className="input" aria-label="الاسم" />
+            <input name="nameEn" defaultValue={m.nameEn} placeholder="الاسم بالإنجليزية" dir="ltr" className="input" aria-label="الاسم بالإنجليزية" />
+          </div>
+          <div className="space-y-2">
+            <textarea name="instructions" defaultValue={m.instructions} rows={2} placeholder="تعليمات للعميل (مثل بيانات الحساب المصرفي)" className="input" />
+            <textarea name="instructionsEn" defaultValue={m.instructionsEn} rows={2} placeholder="التعليمات بالإنجليزية" dir="ltr" className="input" />
+          </div>
           <input name="sortOrder" type="number" defaultValue={m.sortOrder} className="input" aria-label="الترتيب" />
           <label className="flex items-center gap-1"><input type="checkbox" name="enabled" defaultChecked={m.enabled} disabled={m.code === "ONLINE"} /> مفعّلة</label>
           <Submit>حفظ</Submit>
@@ -107,9 +124,10 @@ async function PaymentsTab() {
 async function CitiesTab() {
   const cities = await db.city.findMany({ orderBy: [{ active: "desc" }, { sortOrder: "asc" }], include: { regions: { orderBy: { name: "asc" } } } });
   const Row = ({ c }: { c?: (typeof cities)[number] }) => (
-    <form action={saveCity} className="grid items-center gap-2 p-3 text-sm md:grid-cols-[140px_110px_1fr_70px_auto_auto_auto]">
+    <form action={saveCity} className="grid items-center gap-2 p-3 text-sm md:grid-cols-[130px_120px_110px_1fr_70px_auto_auto_auto]">
       {c && <input type="hidden" name="id" value={c.id} />}
       <input name="name" defaultValue={c?.name} required placeholder="المدينة" className="input" aria-label="المدينة" />
+      <input name="nameEn" defaultValue={c?.nameEn} placeholder="بالإنجليزية" dir="ltr" className="input" aria-label="المدينة بالإنجليزية" />
       <input name="deliveryFee" defaultValue={c ? String(c.deliveryFee) : ""} inputMode="decimal" placeholder="رسوم التوصيل" className="input" aria-label="رسوم التوصيل" />
       <input name="regions" defaultValue={c?.regions.map((r) => r.name).join("، ")} placeholder="المناطق مفصولة بفاصلة (اختياري)" className="input" aria-label="المناطق" />
       <input name="sortOrder" type="number" defaultValue={c?.sortOrder ?? 0} className="input" aria-label="الترتيب" />

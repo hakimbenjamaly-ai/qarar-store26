@@ -3,12 +3,14 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { cardInclude, cards, publishedWhere } from "@/lib/catalog";
 import { ProductCard } from "./product-card";
+import { dict, type Locale } from "@/lib/i18n";
 
 export type ListingParams = { q?: string; sort?: string; min?: string; max?: string; offers?: string; avail?: string; page?: string };
 
 const PAGE = 24;
 
-export async function Listing({ base, params, categoryIds }: { base: string; params: ListingParams; categoryIds?: string[] }) {
+export async function Listing({ base, params, categoryIds, l }: { base: string; params: ListingParams; categoryIds?: string[]; l: Locale }) {
+  const t = dict(l);
   const q = (params.q ?? "").trim().slice(0, 100);
   const min = Number(params.min) || undefined;
   const max = Number(params.max) || undefined;
@@ -20,6 +22,9 @@ export async function Listing({ base, params, categoryIds }: { base: string; par
     and.push({
       OR: [
         { name: { contains: q, mode: "insensitive" } },
+        { nameEn: { contains: q, mode: "insensitive" } },
+        { descriptionEn: { contains: q, mode: "insensitive" } },
+        { category: { nameEn: { contains: q, mode: "insensitive" } } },
         { description: { contains: q, mode: "insensitive" } },
         { sku: { equals: q, mode: "insensitive" } },
         { category: { name: { contains: q, mode: "insensitive" } } },
@@ -53,48 +58,48 @@ export async function Listing({ base, params, categoryIds }: { base: string; par
     <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
       <form action={base} className="card h-fit space-y-4 p-4 text-sm">
         <div>
-          <label className="label" htmlFor="q">كلمة البحث</label>
+          <label className="label" htmlFor="q">{t.keyword}</label>
           <input id="q" name="q" defaultValue={q} className="input" />
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="label" htmlFor="min">من (د.ل)</label>
+            <label className="label" htmlFor="min">{t.priceFrom}</label>
             <input id="min" name="min" type="number" min={0} defaultValue={params.min} className="input" />
           </div>
           <div>
-            <label className="label" htmlFor="max">إلى (د.ل)</label>
+            <label className="label" htmlFor="max">{t.priceTo}</label>
             <input id="max" name="max" type="number" min={0} defaultValue={params.max} className="input" />
           </div>
         </div>
         <div>
-          <label className="label" htmlFor="avail">التوفر</label>
+          <label className="label" htmlFor="avail">{t.availability}</label>
           <select id="avail" name="avail" defaultValue={params.avail ?? ""} className="input">
-            <option value="">الكل</option>
-            <option value="local">متوفر في ليبيا</option>
-            <option value="import">يُطلب من الخارج</option>
+            <option value="">{t.all}</option>
+            <option value="local">{t.inLibya}</option>
+            <option value="import">{t.importOnOrder}</option>
           </select>
         </div>
         <div>
-          <label className="label" htmlFor="sort">الترتيب</label>
+          <label className="label" htmlFor="sort">{t.sort}</label>
           <select id="sort" name="sort" defaultValue={params.sort ?? "new"} className="input">
-            <option value="new">الأحدث</option>
-            <option value="price_asc">السعر: الأقل أولاً</option>
-            <option value="price_desc">السعر: الأعلى أولاً</option>
-            <option value="name">الاسم</option>
+            <option value="new">{t.sortNew}</option>
+            <option value="price_asc">{t.sortPriceAsc}</option>
+            <option value="price_desc">{t.sortPriceDesc}</option>
+            <option value="name">{t.sortName}</option>
           </select>
         </div>
         <label className="flex items-center gap-2">
-          <input type="checkbox" name="offers" value="1" defaultChecked={!!params.offers} /> العروض فقط
+          <input type="checkbox" name="offers" value="1" defaultChecked={!!params.offers} /> {t.offersOnly}
         </label>
-        <button className="btn-primary w-full">تطبيق</button>
+        <button className="btn-primary w-full">{t.apply}</button>
       </form>
       <div>
-        <p className="mb-3 text-sm text-gray-500">{total} منتج</p>
+        <p className="mb-3 text-sm text-gray-500">{t.productsCount(total)}</p>
         {items.length === 0 ? (
-          <div className="card p-8 text-center text-gray-600">لا توجد منتجات مطابقة.</div>
+          <div className="card p-8 text-center text-gray-600">{t.noMatches}</div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-            {items.map((p) => <ProductCard key={p.slug} p={p} />)}
+            {items.map((p) => <ProductCard key={p.slug} p={p} l={l} />)}
           </div>
         )}
         {pages > 1 && (

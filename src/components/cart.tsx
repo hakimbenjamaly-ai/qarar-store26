@@ -1,12 +1,15 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import type { Locale } from "@/lib/i18n";
 
 export type CartLine = {
   variantId: string;
   productSlug: string;
   name: string;
+  nameEn?: string;
   variantName: string;
+  variantNameEn?: string;
   image: string | null;
   price: number; // للعرض فقط — السعر الفعلي يُحسب في الخادم عند إتمام الطلب
   quantity: number;
@@ -14,6 +17,7 @@ export type CartLine = {
 };
 
 type Ctx = {
+  l: Locale;
   lines: CartLine[];
   ready: boolean;
   add: (l: CartLine) => void;
@@ -27,7 +31,7 @@ type Ctx = {
 const CartContext = createContext<Ctx | null>(null);
 const KEY = "qarar_cart_v1";
 
-export function CartProvider({ children }: { children: React.ReactNode }) {
+export function CartProvider({ children, l }: { children: React.ReactNode; l: Locale }) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [ready, setReady] = useState(false);
 
@@ -62,7 +66,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const count = lines.reduce((s, l) => s + l.quantity, 0);
   const subtotal = lines.reduce((s, l) => s + l.quantity * l.price, 0);
 
-  return <CartContext.Provider value={{ lines, ready, add, setQty, remove, clear, count, subtotal }}>{children}</CartContext.Provider>;
+  return <CartContext.Provider value={{ l, lines, ready, add, setQty, remove, clear, count, subtotal }}>{children}</CartContext.Provider>;
 }
 
 export function useCart() {
@@ -74,5 +78,5 @@ export function useCart() {
 export function CartBadge() {
   const { count, ready } = useCart();
   if (!ready || count === 0) return null;
-  return <span className="absolute -left-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[11px] font-bold text-white">{count}</span>;
+  return <span className="absolute -end-2 -top-2 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[11px] font-bold text-white">{count}</span>;
 }

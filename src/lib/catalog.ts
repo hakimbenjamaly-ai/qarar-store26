@@ -17,6 +17,7 @@ export function toCard(p: WithCard): CardProduct | null {
   return {
     slug: p.slug,
     name: p.name,
+    nameEn: p.nameEn,
     image: p.images[0]?.url ?? null,
     price: Number(v.price),
     compareAtPrice: v.compareAtPrice ? Number(v.compareAtPrice) : null,
