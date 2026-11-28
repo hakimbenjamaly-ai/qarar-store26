@@ -113,7 +113,7 @@ await go("/admin/purchasing");
 const grp = a.locator("form", { hasText: orderNo });
 await grp.locator("button:has-text('إنشاء أمر شراء')").click();
 await a.waitForURL(/\/admin\/purchase-orders\/c/);
-const poUrl = a.url().split("?")[0];
+
 assert.equal(await a.locator("input[name^=price_]").first().inputValue(), "19.5", "السعر الافتراضي من رابط المورد");
 await a.fill("input[name=supplierOrderNo]", `AE-${stamp}`);
 await a.fill("input[name=invoiceNo]", `INV-${stamp}`);

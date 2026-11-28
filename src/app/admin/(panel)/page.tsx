@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { requireUser, can } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -17,6 +18,7 @@ function range(from?: string, to?: string) {
 export default async function Dashboard({ searchParams }: { searchParams: Promise<{ from?: string; to?: string; category?: string; supplier?: string; denied?: string }> }) {
   const user = await requireUser();
   const sp = await searchParams;
+  if (!can(user, "dashboard.view") && can(user, "delivery.partner") && !sp.denied) redirect("/admin/partner");
   if (!can(user, "dashboard.view")) {
     return (
       <div>
@@ -66,6 +68,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const purchaseCost = pos.reduce((s, p) => s + (p.currency === "LYD" ? Number(p.total) : p.exchangeRate ? Number(p.total) * Number(p.exchangeRate) : 0), 0);
   const posMissingRate = pos.filter((p) => p.currency !== "LYD" && !p.exchangeRate).length;
   const shippingCost = ships.reduce((s, x) => s + (x.costCurrency === "LYD" ? Number(x.cost) : x.exchangeRate ? Number(x.cost) * Number(x.exchangeRate) : 0) + Number(x.customsFeesLyd), 0);
+
+  // التوزيع المحلي: أجور النورس للتوصيلات المنتهية في الفترة، والمبالغ المحصلة غير المسوّاة (كلها)
+  const [nawrasFees, pendingCod] = await Promise.all([
+    showCosts
+      ? db.delivery.aggregate({ where: { status: { in: ["DELIVERED", "RETURNED"] }, updatedAt: { gte: f, lte: t } }, _sum: { fee: true } })
+      : null,
+    showCosts || can(user, "payments.manage") ? db.delivery.aggregate({ where: { status: "DELIVERED", settlementId: null }, _sum: { collected: true }, _count: true }) : null,
+  ]);
 
   const count = (s: string[]) => byStatus.filter((b) => s.includes(b.status)).reduce((n, b) => n + b._count, 0);
   const allCount = byStatus.reduce((n, b) => n + b._count, 0);
@@ -141,6 +151,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         {showCosts && <Stat label="الأرباح الفعلية (الطلبات المسلّمة)" value={lyd(deliveredRevenue - deliveredCost)} />}
         {showCosts && <Stat label="تكلفة المشتريات (أوامر الشراء)" value={lyd(purchaseCost)} href="/admin/purchase-orders" />}
         {showCosts && <Stat label="تكاليف الشحن والجمارك" value={lyd(shippingCost)} href="/admin/shipments" />}
+        {nawrasFees && <Stat label="أجور التوصيل للنورس" value={lyd(nawrasFees._sum.fee ?? 0)} href="/admin/delivery/list?status=all" />}
+        {pendingCod && <Stat label="محصّل لدى النورس بانتظار التسوية" value={lyd(pendingCod._sum.collected ?? 0)} href="/admin/delivery/settlements" tone="text-amber-700" />}
       </div>
       {showCosts && (
         <p className="mt-2 text-xs text-gray-500">
@@ -148,7 +160,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           {missingCost > 0 && ` ${missingCost} بنداً بلا أي تكلفة مسجلة.`}
           {deliveredMissingActual > 0 && ` ${deliveredMissingActual} بنداً مسلّماً بلا تكلفة فعلية بعد.`}
           {posMissingRate > 0 && ` ${posMissingRate} أمر شراء بلا سعر صرف لم يُحتسب.`}
-          {" "}رسوم النورس تُخصم بعد تفعيل وحدة التوزيع (المرحلة ٣).
+          {" "}أجور النورس تُقابلها رسوم التوصيل المحصّلة من العملاء، وتظهر منفصلة. المحصّل لدى النورس يصبح دفعة على الطلب عند تسجيل التسوية.
         </p>
       )}
 

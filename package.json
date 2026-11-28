@@ -13,7 +13,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "create-admin": "tsx scripts/create-admin.ts",
     "test": "vitest run",
-    "test:e2e": "node tests/e2e/smoke.mjs && node tests/e2e/phase2.mjs"
+    "test:e2e": "node tests/e2e/smoke.mjs && node tests/e2e/phase2.mjs && node tests/e2e/phase3.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

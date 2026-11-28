@@ -11,6 +11,9 @@ const NAV: { href: string; label: string; perm?: Permission }[] = [
   { href: "/admin/purchasing", label: "بانتظار الشراء", perm: "purchasing.manage" },
   { href: "/admin/purchase-orders", label: "أوامر الشراء", perm: "purchasing.manage" },
   { href: "/admin/shipments", label: "الشحنات الدولية", perm: "shipping.manage" },
+  { href: "/admin/delivery", label: "التوزيع المحلي (النورس)", perm: "delivery.manage" },
+  { href: "/admin/delivery/settlements", label: "التسويات مع النورس", perm: "payments.manage" },
+  { href: "/admin/partner", label: "بوابة شركة التوزيع", perm: "delivery.partner" },
   { href: "/admin/products", label: "المنتجات", perm: "products.manage" },
   { href: "/admin/categories", label: "الأقسام", perm: "categories.manage" },
   { href: "/admin/suppliers", label: "الموردون", perm: "costs.view" },
@@ -26,7 +29,9 @@ const NAV: { href: string; label: string; perm?: Permission }[] = [
 export default async function PanelLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const [s, unread] = await Promise.all([getSettings(), db.notification.count({ where: { read: false } })]);
-  const items = NAV.filter((n) => !n.perm || user.permissions.has(n.perm));
+  // موظف شركة التوزيع لا يرى إشعارات المتجر الداخلية
+  const partnerOnly = user.permissions.has("delivery.partner") && !user.permissions.has("orders.view");
+  const items = NAV.filter((n) => (n.href === "/admin/partner" && !user.deliveryPartnerId ? false : n.perm ? user.permissions.has(n.perm) : !partnerOnly));
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[230px_1fr]">
       <aside className="no-print border-l bg-white lg:min-h-screen">

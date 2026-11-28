@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -7,13 +8,14 @@ import { Empty, PageHeader } from "@/components/admin/ui";
 
 async function markAll() {
   "use server";
-  await requireUser();
+  await requireUser("orders.view");
   await db.notification.updateMany({ where: { read: false }, data: { read: true } });
   revalidatePath("/admin", "layout");
 }
 
 export default async function NotificationsPage() {
-  await requireUser();
+  const u = await requireUser();
+  if (u.permissions.has("delivery.partner") && !u.permissions.has("orders.view")) redirect("/admin/partner");
   const rows = await db.notification.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
   return (
     <div>
